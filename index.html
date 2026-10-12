@@ -111,6 +111,15 @@ button:disabled{opacity:.45;transform:none;box-shadow:0 5px 0 var(--moss);cursor
 button.has-badge{position:relative;}
 button.has-badge::after{content:"!";position:absolute;top:-10px;right:-8px;width:24px;height:24px;border-radius:50%;background:#FF4D6D;color:#fff;font-size:15px;line-height:20px;border:2px solid var(--moss);text-shadow:none;animation:pulse 1s ease-in-out infinite;}
 #comboBox.pop{animation:numpop .35s cubic-bezier(.2,1.8,.5,1) both;}
+.missions{margin-top:12px;border:3px solid var(--moss);border-radius:16px;background:#fff;padding:8px 10px;}
+.missions .mtitle{font-weight:700;font-size:15px;text-align:center;margin-bottom:4px;}
+.mrow{display:flex;align-items:center;gap:8px;padding:4px 0;border-top:2px dashed rgba(31,77,43,.15);}
+.mrow:first-of-type{border-top:none;}
+.mtxt{flex:1;font-size:13.5px;font-weight:600;}
+.mbar{height:8px;border-radius:5px;background:rgba(31,77,43,.15);margin-top:3px;overflow:hidden;}
+.mbar>i{display:block;height:100%;background:linear-gradient(90deg,#FFE88A,#F2B92E);border-radius:5px;}
+.mrew{font-weight:700;font-size:14px;white-space:nowrap;}
+.missions.compact{padding:6px 10px;} .missions.compact .mtxt{font-size:12.5px;}
 .tip{font-size:14px;font-weight:600;opacity:.85;margin-top:10px;text-align:center;}
 .upic{width:54px;height:54px;flex:none;}
 .big-num.pop{animation:numpop .5s cubic-bezier(.2,1.6,.5,1) both;}
@@ -155,7 +164,8 @@ button.has-badge::after{content:"!";position:absolute;top:-10px;right:-8px;width
       <button id="shopBtn">Shop</button>
       <button class="ad hidden" id="trialBtn"><span class="ad-tag">AD</span>Free trial</button>
     </div>
-    <div class="legend">
+    <div class="missions" id="menuMissions"></div>
+    <div class="legend" id="legendBox">
       <div class="col good"><h3>Good to hit</h3><div class="items" id="goodList"></div></div>
       <div class="col bad"><h3>Bad to hit</h3><div class="items" id="badList"></div></div>
     </div>
@@ -185,10 +195,11 @@ button.has-badge::after{content:"!";position:absolute;top:-10px;right:-8px;width
     <div style="margin-top:10px">
       <div class="stat"><span>Dewdrops collected</span><span id="resPick">0</span></div>
       <div class="stat"><span>Distance bonus</span><span id="resDistC">0</span></div>
-      <div class="stat"><span>Goal rewards</span><span id="resGoal">0</span></div>
+      <div class="stat"><span>Goals &amp; missions</span><span id="resGoal">0</span></div>
       <div class="stat" style="border:none;font-size:20px"><span>Total</span><span id="resTotal">0</span></div>
     </div>
     <div class="row"><button class="ad hidden" id="dblBtn"><span class="ad-tag">AD</span>Double coins</button></div>
+    <div class="missions compact" id="resMissions"></div>
     <div class="tip" id="resTip"></div>
     <div class="row"><button id="resShop">Shop</button><button class="go" id="resAgain">Fling again</button></div>
     <div class="row"><button class="plain" id="resMenu" style="font-size:14px;padding:8px">Main menu</button></div>
@@ -240,6 +251,18 @@ var UPGRADES = [
   {id:"salt", name:"Salt Resistance", desc:"Salt slows you down less.", base:60}
 ];
 var MAXLV = 10;
+var MISSIONS = [
+  {id:"ant", key:"ant", txt:"Smash {n} ants", base:15, step:15},
+  {id:"frog", key:"frog", txt:"Bounce off {n} frogs", base:5, step:5},
+  {id:"dew", key:"dew", txt:"Collect {n} dewdrops", base:60, step:60},
+  {id:"slam", key:"slam", txt:"Land {n} slam bounces", base:5, step:5},
+  {id:"dist", key:"dist", txt:"Fly {n} m in one run", base:300, step:400, max:true},
+  {id:"combo", key:"combo", txt:"Reach a x{n} combo", base:3, step:1, max:true, cap:10},
+  {id:"stamp", key:"stamp", txt:"Smash {n} critters in stampedes", base:10, step:10},
+  {id:"mush", key:"mush", txt:"Bounce on {n} mushrooms", base:15, step:15},
+  {id:"bigcrit", key:"bigcrit", txt:"Smash {n} mice or grasshoppers", base:8, step:8},
+  {id:"special", key:"special", txt:"Hit {n} area specials (fish, ducks...)", base:5, step:5}
+];
 var CHARS = [
   {id:"shelly", name:"Shelly", desc:"Balanced. Born to fly.", cost:0},
   {id:"ladybug", name:"Dot", desc:"Ladybug. Glides 15% longer.", cost:500},
@@ -253,7 +276,7 @@ var ZONES = [ // sky top, sky bottom, hill, ground
   {m:200, top:"#5FB7E6", bot:"#D9F5EC", hill:"#79BE7A", grass:"#54AE56", soil:"#7B5638"},
   {m:500, top:"#7FA8F5", bot:"#FFD9A6", hill:"#B6A3C9", grass:"#62B04C", soil:"#82583A"},
   {m:1000, top:"#5672CF", bot:"#F7B9CB", hill:"#4F8F5A", grass:"#3F9A4A", soil:"#6E4A32"},
-  {m:2500, top:"#2B357F", bot:"#A584D6", hill:"#7E6FB8", grass:"#6F9E7A", soil:"#5B4436"},
+  {m:2500, top:"#2B357F", bot:"#A584D6", hill:"#7E6FB8", grass:"#F1ECFF", soil:"#C9BFEA"},
   {m:5000, top:"#070C33", bot:"#352F6E", hill:"#3A3870", grass:"#8E8FA8", soil:"#5E5E78"}
 ];
 
@@ -300,7 +323,7 @@ function storeSet(k,v){
 var save;
 function defaultSave(){
   var up={}; UPGRADES.forEach(function(u){up[u.id]=0;});
-  return {coins:0,best:0,up:up,owned:{shelly:true},sel:"shelly",goals:{},snd:true,mus:true,trialDay:"",trial:null,runs:0,tut:{}};
+  return {coins:0,best:0,up:up,owned:{shelly:true},sel:"shelly",goals:{},snd:true,mus:true,trialDay:"",trial:null,runs:0,tut:{},mis:[],mlv:{}};
 }
 function loadSave(){
   var d=defaultSave();
@@ -309,8 +332,39 @@ function loadSave(){
     UPGRADES.forEach(function(u){ if(typeof d.up[u.id]!=="number") d.up[u.id]=0; });
     if(!d.owned) d.owned={shelly:true};
     if(!d.tut) d.tut={};
+    if(!d.mis) d.mis=[]; if(!d.mlv) d.mlv={};
   } }catch(e){}
   save=d;
+}
+function misDef(id){ for(var i=0;i<MISSIONS.length;i++) if(MISSIONS[i].id===id) return MISSIONS[i]; return null; }
+function newMission(exclude){
+  var pool=MISSIONS.filter(function(m){ return exclude.indexOf(m.id)<0 && (m.id!=="special" || save.best>=200); });
+  var m=pool[Math.floor(Math.random()*pool.length)], l=save.mlv[m.id]||0, n=m.base+m.step*l; if(m.cap) n=Math.min(m.cap,n);
+  return {id:m.id,n:n,p:0,r:40+30*l};
+}
+function ensureMissions(){
+  save.mis=(save.mis||[]).filter(function(x){ return misDef(x.id); });
+  while(save.mis.length<3){ save.mis.push(newMission(save.mis.map(function(x){return x.id;}))); }
+}
+function misText(x){ return misDef(x.id).txt.replace("{n}",fmt(x.n)); }
+function mission(key,amt){
+  if(!save.mis) return; var changed=false;
+  for(var i=0;i<save.mis.length;i++){ var x=save.mis[i], d=misDef(x.id); if(!d||d.key!==key) continue;
+    if(d.max) x.p=Math.max(x.p,amt); else x.p+=amt; changed=true;
+    if(x.p>=x.n){
+      save.mlv[x.id]=(save.mlv[x.id]||0)+1;
+      if(run && (G.state==="fly"||G.state==="ending"||G.state==="aim")) run.goalCoins+=x.r; else save.coins+=x.r;
+      toast("Mission complete: "+misText(x)+" +"+fmt(x.r)); Audio.play("goal");
+      var keep=save.mis.map(function(y){return y.id;}); save.mis[i]=newMission(keep);
+    }
+  }
+  if(changed && key!=="dew" && key!=="ant") writeSave();
+}
+function renderMissions(el){
+  ensureMissions(); var h='<div class="mtitle">Missions</div>';
+  save.mis.forEach(function(x){ var pc=Math.min(100,Math.round(x.p/x.n*100));
+    h+='<div class="mrow"><div class="mtxt">'+misText(x)+'<div class="mbar"><i style="width:'+pc+'%"></i></div></div><div class="mrew"><span class="dewico"></span>'+fmt(x.r)+'</div></div>'; });
+  el.innerHTML=h; injectDewIcons();
 }
 function writeSave(){ storeSet(SAVE_KEY, JSON.stringify(save)); }
 function gpStart(){ try{ if(SDK && sdkOn) SDK.game.gameplayStart(); }catch(e){} }
@@ -689,6 +743,89 @@ function drawObj(c,type,t,o){
     circle(c,28,7,3,OUT); circle(c,17,3,2.4,OUT);
     c.beginPath(); c.moveTo(-8,19); c.lineTo(-8+hlg,24); c.moveTo(6,19); c.lineTo(6-hlg,24); c.lineWidth=2.5; c.stroke();
     break;
+  case "fish":
+    var fw=Math.sin(t*10)*0.25;
+    c.save(); c.rotate(Math.cos(t*2)*0.5);
+    c.beginPath(); c.moveTo(-18,0); c.lineTo(-34,-12+fw*20); c.lineTo(-32,12-fw*20); c.closePath(); c.fillStyle="#FF9A3C"; c.fill(); c.lineWidth=2.5; c.strokeStyle=OUT; c.stroke();
+    ell(c,0,0,24,14,"#FFB13B",OUT,3);
+    c.beginPath(); c.moveTo(-4,-12); c.quadraticCurveTo(4,-24,10,-12); c.fillStyle="#FF8A2B"; c.fill(); c.stroke();
+    c.strokeStyle="rgba(255,255,255,.7)"; c.lineWidth=2; c.beginPath(); c.arc(-4,0,8,-1.2,1.2); c.stroke();
+    circle(c,12,-3,4.5,"#FFFFFF",OUT,1.8); circle(c,13,-3,2,OUT); c.beginPath(); c.arc(20,4,3,0.2,2.6); c.strokeStyle=OUT; c.lineWidth=2; c.stroke();
+    c.restore(); break;
+  case "duck":
+    var dq=o.squash||0; c.save(); c.scale(1+dq*0.2,1-dq*0.3);
+    ell(c,0,-20,30,20,"#FFE066",OUT,3);
+    c.beginPath(); c.moveTo(-28,-24); c.lineTo(-40,-34); c.lineTo(-30,-14); c.closePath(); c.fillStyle="#FFD447"; c.fill(); c.lineWidth=2.5; c.strokeStyle=OUT; c.stroke();
+    circle(c,16,-44,15,"#FFE066",OUT,3);
+    c.beginPath(); c.moveTo(28,-46); c.quadraticCurveTo(42,-44,40,-38); c.quadraticCurveTo(32,-34,26,-38); c.closePath(); c.fillStyle="#FF8A2B"; c.fill(); c.stroke();
+    circle(c,19,-48,3.5,"#FFFFFF",OUT,1.5); circle(c,20,-48,1.6,OUT);
+    c.beginPath(); c.ellipse(-4,-18,12,7,0.2,0,7); c.strokeStyle=OUT; c.lineWidth=2; c.stroke();
+    c.restore(); break;
+  case "awning":
+    var aq=o.squash||0;
+    c.fillStyle="#7A4B2A"; c.strokeStyle=OUT; c.lineWidth=3; c.fillRect(-44,-100,7,100); c.strokeRect(-44,-100,7,100); c.fillRect(37,-100,7,100); c.strokeRect(37,-100,7,100);
+    c.save(); c.translate(0,-104+aq*10); c.scale(1,1-aq*0.3);
+    for(var aw=0;aw<6;aw++){ c.fillStyle=aw%2?"#FFFFFF":"#FF7FA8"; c.beginPath(); c.moveTo(-50+aw*16.6,0); c.lineTo(-50+(aw+1)*16.6,0); c.lineTo(-56+(aw+1)*18.6,-26); c.lineTo(-56+aw*18.6,-26); c.closePath(); c.fill(); }
+    c.beginPath(); c.moveTo(-50,0); c.lineTo(50,0); c.lineTo(56,-26); c.lineTo(-56,-26); c.closePath(); c.strokeStyle=OUT; c.lineWidth=3; c.stroke();
+    for(var sc=0;sc<6;sc++){ c.beginPath(); c.arc(-41.7+sc*16.6,0,8.3,0,Math.PI); c.fillStyle=sc%2?"#FFFFFF":"#FF7FA8"; c.fill(); c.lineWidth=2.5; c.stroke(); }
+    c.restore(); break;
+  case "mailbox":
+    c.fillStyle="#7A4B2A"; c.strokeStyle=OUT; c.lineWidth=3; c.fillRect(-4,-40,8,40); c.strokeRect(-4,-40,8,40);
+    c.beginPath(); c.moveTo(-22,-40); c.lineTo(-22,-62); c.arc(0,-62,22,Math.PI,0); c.lineTo(22,-40); c.closePath(); c.fillStyle=vgrad(c,-84,-40,"#5B8DEF"); c.fill(); c.stroke();
+    c.fillStyle="#E5484D"; c.fillRect(22,-78,4,24); c.strokeRect(22,-78,4,24); c.fillRect(22,-78,14,9); c.strokeRect(22,-78,14,9);
+    c.fillStyle="#fff"; c.fillRect(-12,-60,24,3);
+    break;
+  case "cat":
+    var tw=Math.sin(t*4)*6;
+    c.beginPath(); c.moveTo(-24,-12); c.quadraticCurveTo(-46,-20+tw,-40,-52); c.strokeStyle=OUT; c.lineWidth=8; c.lineCap="round"; c.stroke(); c.strokeStyle="#8C8C99"; c.lineWidth=4.5; c.stroke();
+    ell(c,-4,-20,26,20,"#9D9DAA",OUT,3);
+    c.fillStyle="#9D9DAA"; c.strokeStyle=OUT; c.lineWidth=2.5;
+    c.beginPath(); c.moveTo(8,-52); c.lineTo(12,-68); c.lineTo(20,-54); c.closePath(); c.fill(); c.stroke(); c.beginPath(); c.moveTo(24,-54); c.lineTo(32,-68); c.lineTo(34,-50); c.closePath(); c.fill(); c.stroke();
+    circle(c,22,-42,16,"#9D9DAA",OUT,3);
+    c.lineWidth=2.5; c.beginPath(); c.moveTo(13,-47); c.lineTo(20,-45); c.moveTo(31,-47); c.lineTo(24,-45); c.stroke();
+    circle(c,17,-42,2.2,OUT); circle(c,27,-42,2.2,OUT); c.fillStyle="#FF9DBB"; c.beginPath(); c.moveTo(20,-37); c.lineTo(24,-37); c.lineTo(22,-35); c.fill();
+    c.lineWidth=1.2; c.beginPath(); c.moveTo(28,-36); c.lineTo(40,-38); c.moveTo(28,-34); c.lineTo(40,-32); c.moveTo(16,-36); c.lineTo(4,-38); c.stroke();
+    break;
+  case "nest":
+    ell(c,0,4,34,14,"#B98A55",OUT,3);
+    c.strokeStyle="#7A5530"; c.lineWidth=2; for(var nn=-3;nn<=3;nn++){ c.beginPath(); c.moveTo(nn*9-6,-2); c.quadraticCurveTo(nn*9,10,nn*9+8,0); c.stroke(); }
+    ell(c,-10,-6,8,10,"#F2F7FF",OUT,2); ell(c,4,-8,8,10,"#BFE6FF",OUT,2); ell(c,16,-5,7,9,"#F2F7FF",OUT,2);
+    c.beginPath(); c.ellipse(0,0,34,12,0,0,Math.PI); c.fillStyle="#C99B63"; c.fill(); c.strokeStyle=OUT; c.lineWidth=3; c.stroke();
+    break;
+  case "owl":
+    var ow=Math.sin(t*12)*0.5;
+    ell(c,-20,4,12,6,"#8A6447",OUT,2,-0.6+ow); ell(c,20,4,12,6,"#8A6447",OUT,2,0.6-ow);
+    ell(c,0,0,20,24,"#8A6447",OUT,3); ell(c,0,8,12,14,"#E8D2B0");
+    c.fillStyle="#8A6447"; c.strokeStyle=OUT; c.lineWidth=2.5; c.beginPath(); c.moveTo(-16,-18); c.lineTo(-12,-30); c.lineTo(-6,-20); c.moveTo(16,-18); c.lineTo(12,-30); c.lineTo(6,-20); c.fill(); c.stroke();
+    circle(c,-8,-8,8,"#FFFFFF",OUT,2); circle(c,8,-8,8,"#FFFFFF",OUT,2); circle(c,-7,-7,3.4,OUT); circle(c,9,-7,3.4,OUT);
+    c.beginPath(); c.moveTo(-3,-1); c.lineTo(3,-1); c.lineTo(0,5); c.closePath(); c.fillStyle="#FFB13B"; c.fill(); c.stroke();
+    c.lineWidth=2.5; c.beginPath(); c.moveTo(-16,-17); c.lineTo(-2,-13); c.moveTo(16,-17); c.lineTo(2,-13); c.stroke();
+    break;
+  case "cloudpad":
+    var cq=o.squash||0; c.save(); c.scale(1+cq*0.2,1-cq*0.3);
+    c.fillStyle="#FFFFFF"; c.strokeStyle=OUT; c.lineWidth=3;
+    c.beginPath(); c.arc(-24,4,18,Math.PI*0.5,Math.PI*1.5); c.arc(-8,-12,20,Math.PI,Math.PI*1.9); c.arc(14,-10,18,Math.PI*1.2,Math.PI*0.1+Math.PI*2); c.arc(28,6,14,Math.PI*1.5,Math.PI*0.5); c.closePath();
+    var cg=c.createLinearGradient(0,-32,0,22); cg.addColorStop(0,"#FFFFFF"); cg.addColorStop(1,"#E3D9FF"); c.fillStyle=cg; c.fill(); c.stroke();
+    circle(c,-6,-2,2.5,OUT); circle(c,8,-2,2.5,OUT); c.beginPath(); c.arc(1,3,4,0.2,Math.PI-0.2); c.lineWidth=2; c.stroke();
+    ell(c,-14,4,4,2.5,"rgba(255,150,190,.6)"); ell(c,16,4,4,2.5,"rgba(255,150,190,.6)");
+    c.restore(); break;
+  case "storm":
+    c.fillStyle="#5C5F7A"; c.strokeStyle=OUT; c.lineWidth=3;
+    c.beginPath(); c.arc(-20,4,16,Math.PI*0.5,Math.PI*1.5); c.arc(-4,-10,18,Math.PI,Math.PI*1.9); c.arc(16,-8,16,Math.PI*1.2,Math.PI*0.1+Math.PI*2); c.arc(26,6,12,Math.PI*1.5,Math.PI*0.5); c.closePath();
+    c.fillStyle=vgrad(c,-28,20,"#5C5F7A"); c.fill(); c.stroke();
+    c.lineWidth=2.5; c.beginPath(); c.moveTo(-10,-4); c.lineTo(-3,0); c.moveTo(12,-4); c.lineTo(5,0); c.stroke();
+    if(Math.sin(t*7)>0.2){ c.beginPath(); c.moveTo(2,18); c.lineTo(-8,34); c.lineTo(0,34); c.lineTo(-6,50); c.lineTo(10,30); c.lineTo(2,30); c.lineTo(10,18); c.closePath(); c.fillStyle="#FFE96B"; c.fill(); c.lineWidth=2; c.stroke(); }
+    break;
+  case "crater":
+    ell(c,0,-4,46,12,"#9E9DC0",OUT,3); ell(c,0,-3,32,7,"#6F6E92"); ell(c,-10,-5,10,3,"rgba(255,255,255,.35)");
+    c.fillStyle="#B9B8D6"; for(var cr=0;cr<5;cr++){ circle(c,-40+cr*20,-12-hash(cr)*6,3+hash(cr+2)*3,"#B9B8D6",OUT,1.5); }
+    break;
+  case "ufo":
+    ell(c,0,-6,14,12,"rgba(190,240,255,.85)",OUT,2.5);
+    ell(c,0,4,34,11,"#B8C2D6",OUT,3);
+    for(var ul=0;ul<5;ul++){ circle(c,-24+ul*12,6,3.2,((Math.floor(t*6)+ul)%2)?"#7BE04B":"#FFD447",OUT,1.2); }
+    circle(c,-3,-8,3,"#7BE04B"); circle(c,4,-8,3,"#7BE04B");
+    break;
   case "shield": case "magnet": case "turbo":
     var gg=c.createRadialGradient(-6,-6,2,0,0,24); gg.addColorStop(0,"rgba(255,255,255,.95)"); gg.addColorStop(1,"rgba(170,230,255,.55)");
     circle(c,0,0,23,gg,OUT,2.5);
@@ -740,14 +877,18 @@ function spawnAt(x,forced){
     ["salt", early?0:(3+Math.min(8,m/120))],["puddle",early?0:4],["bird",early?0:(2.5+Math.min(5,m/180))],["web",early?0:(1.5+Math.min(4,m/250))],
     ["bee",early?0:2.2],["ants",7],["roly",4.5],["mouse",4],["hopper",early?1.5:3],["hedgehog",early?0:(1.5+Math.min(3,m/300))],["dewrow",20],["gold",1.6],["power",early?1:3]
   ];
+  var zi=zoneIndex(m), zw={1:[["fish",10],["duck",8]],2:[["awning",9],["mailbox",8],["cat",4]],3:[["nest",10],["owl",4]],4:[["cloudpad",13],["storm",4]],5:[["crater",11],["ufo",5]]}[zi];
+  if(zw) w=w.concat(zw);
   var tot=0; w.forEach(function(e){tot+=e[1];}); var r=Math.random()*tot, type="mushroom";
   for(var i=0;i<w.length;i++){ r-=w[i][1]; if(r<=0){ type=w[i][0]; break; } }
   if(forced) type=forced;
-  var ground={mushroom:[44,34],lily:[6,40],frog:[26,30],fireflower:[56,26],hose:[22,30],salt:[14,26],puddle:[3,42]};
+  var ground={mushroom:[44,34],lily:[6,40],frog:[26,30],fireflower:[56,26],hose:[22,30],salt:[14,26],puddle:[3,42],duck:[26,28],awning:[112,44],mailbox:[48,24],cat:[26,28],crater:[8,46]};
+  var air={fish:[60,240,26],nest:[150,460,36],owl:[160,560,26],cloudpad:[110,520,46],storm:[200,600,42],ufo:[220,520,36]};
+  if(air[type]){ var ay=rand(air[type][0],air[type][1]); objs.push({type:type,x:x,y:ay,baseY:ay,r:air[type][2],used:false,ph:Math.random()*6,special:true}); return; }
   var crit={roly:[18,18,60],mouse:[17,20,150],hopper:[20,18,0],hedgehog:[22,24,35]};
   if(type==="ants"){ var na=Math.floor(rand(3,6)), dir=Math.random()<0.5?-1:1; for(var a=0;a<na;a++) objs.push({type:"ant",critter:true,x:x+a*46,y:11*CS,r:14*CS,mvx:dir*rand(50,70),used:false,ph:Math.random()*6}); return; }
   if(crit[type]){ var sp=crit[type][2]*(Math.random()<0.5?-1:1); objs.push({type:type,critter:true,x:x,y:crit[type][0]*CS,baseY:crit[type][0]*CS,r:crit[type][1]*CS,mvx:sp,used:false,ph:Math.random()*6,hopT:rand(0.5,1.5),hvy:0}); return; }
-  if(ground[type]){ objs.push({type:type,x:x,y:ground[type][0],r:ground[type][1],ground:true,used:false,sq:0}); }
+  if(ground[type]){ objs.push({type:type,x:x,y:ground[type][0],r:ground[type][1],ground:true,used:false,sq:0,special:['duck','awning','mailbox','cat','crater'].indexOf(type)>=0}); }
   else if(type==="dewrow"){
     var n=Math.floor(rand(5,9)), h=rand(70,520), arc=rand(0,120);
     for(var k=0;k<n;k++){ var f=k/(n-1); objs.push({type:"dew",x:x+k*38,y:h+Math.sin(f*Math.PI)*arc,r:14,coin:1}); }
@@ -788,7 +929,7 @@ function comboUp(){
     run.mult=m;
     var words={2:"Nice!",3:"Sweet!",4:"Zoom!",5:"Slimetastic!",6:"Wild!",7:"Shell-ebration!",8:"Unstoppable!",9:"Snailstorm!",10:"Legendary!"};
     addText(snail.x, snail.y+70, words[m]||"Combo!", "#FFD447", 30+m*2);
-    Audio.play("combo", m); addShake(3+m); fx(snail.x,snail.y,0.6,"#FFD447");
+    Audio.play("combo", m); addShake(3+m); mission("combo",m); fx(snail.x,snail.y,0.6,"#FFD447");
     for(var si=0;si<8+m;si++){ var a=si/(8+m)*Math.PI*2; parts.push({x:snail.x,y:snail.y,vx:Math.cos(a)*420,vy:Math.sin(a)*420,life:.6,max:.6,col:["#FFD447","#FF7FA8","#7FD8FF"][si%3],size:9,g:300,star:true}); }
   }
 }
@@ -840,12 +981,12 @@ function endStampede(){
   }
 }
 function hit(o){
-  if(["salt","puddle","bird","web","hedgehog"].indexOf(o.type)>=0) snail.hurtT=0.8;
-  if(o.stamp && o.type!=="hedgehog"){ run.stampHits++; burst(o.x,o.y+20,6,["#FF7FA8","#FFD447","#7FD8FF"],260,400,5); }
+  if(["salt","puddle","bird","web","hedgehog","cat","owl","storm"].indexOf(o.type)>=0) snail.hurtT=0.8;
+  if(o.stamp && o.type!=="hedgehog"){ run.stampHits++; mission("stamp",1); burst(o.x,o.y+20,6,["#FF7FA8","#FFD447","#7FD8FF"],260,400,5); }
   var s=snail, bl=lv("bounce");
   switch(o.type){
     case "mushroom":
-      o.sq=1;
+      o.sq=1; mission("mush",1);
       s.vy=Math.max(Math.abs(s.vy)*0.75, 600+bl*55); s.vx=Math.max(s.vx,180)+40+bl*6; s.slamming=false;
       comboUp(); Audio.play("boing",1+0.04*run.mult); addShake(4); fx(o.x,o.y+30,0.6); burst(o.x,o.y+20,10,["#E5484D","#fff","#FFD447"],320,700,7);
       addText(o.x,o.y+70,"Boing!","#fff",24); break;
@@ -854,6 +995,7 @@ function hit(o){
       s.vy=Math.max(480+bl*20, Math.abs(s.vy)*0.5); s.vx+=160; comboUp(); Audio.play("splash");
       burst(o.x,10,16,["#7FD8FF","#BFF0FF","#fff"],300,900,6); addText(o.x,70,"Splash!","#BFF0FF",22); break;
     case "frog":
+      mission("frog",1);
       s.vy=Math.max(900+bl*55, Math.abs(s.vy)); s.vx=Math.max(s.vx,220)+90; s.slamming=false;
       if(run.slams<run.maxSlams){ run.slams++; addText(o.x,o.y+110,"+1 slam","#FF7FA8",20); }
       comboUp(); Audio.play("frog"); addShake(8); fx(o.x,o.y+20,1,"#D8F0A6"); burst(o.x,o.y+20,16,["#5DBB4C","#D8F0A6","#fff"],420,700,8);
@@ -886,6 +1028,7 @@ function hit(o){
     case "bee":
       s.carry=1.5; s.vy=0; s.slamming=false; comboUp(); Audio.play("bee"); addText(o.x,o.y+60,"Bee taxi!","#FFD447",28); o.dead=true; break;
     case "ant":
+      mission("ant",1);
       s.vy=Math.max(Math.abs(s.vy)*0.5, 360+bl*30); s.vx+=30; knock(o,0.8); comboUp();
       var av=Math.max(1,Math.round(2*coinValue()*run.mult)); run.coins+=av;
       Audio.play("bonk"); burst(o.x,o.y,6,["#8B3A2E","#fff"],220,500,5); addText(o.x,o.y+50,"Bonk! +"+av,"#fff",20); return true;
@@ -893,15 +1036,50 @@ function hit(o){
       s.vx+=200+bl*10; s.vy=Math.max(s.vy,360); knock(o,1.3); o.knock.vx+=500; comboUp(); Audio.play("roll"); addShake(6); fx(o.x,o.y,0.7,"#C9D2E6");
       burst(o.x,o.y,10,["#7D8AA6","#C9D2E6","#fff"],300,600,6); addText(o.x,o.y+60,"Strike!","#C9D2E6",28); return true;
     case "mouse":
+      mission("bigcrit",1);
       s.vy=Math.max(680+bl*50, Math.abs(s.vy)*0.8); s.vx+=80; if(s.slamming){ s.vy*=1.2; addText(o.x,o.y+100,"Slam combo!","#FF7FA8",22); } s.slamming=false;
       knock(o,1.1); comboUp(); Audio.play("squeak"); addShake(5); fx(o.x,o.y,0.8,"#FFB3CB"); burst(o.x,o.y,10,["#B8AFA6","#FFB3CB","#fff"],320,600,6); addText(o.x,o.y+60,"Squeak!","#FFB3CB",28); return true;
     case "hopper":
+      mission("bigcrit",1);
       s.vy=Math.max(880+bl*50, Math.abs(s.vy)*0.8); s.vx+=140; if(s.slamming){ s.vy*=1.15; addText(o.x,o.y+110,"Slam combo!","#FF7FA8",22); } s.slamming=false;
       knock(o,1.2); comboUp(); Audio.play("hop"); addShake(7); fx(o.x,o.y,1,"#B4E36A"); burst(o.x,o.y,12,["#6CC04A","#B4E36A","#fff"],360,600,6); addText(o.x,o.y+70,"Hop boost!","#B4E36A",30); return true;
     case "hedgehog":
       if(tryShield()){ knock(o,1); return true; }
       s.vx*=0.55; s.vy=Math.max(320,Math.abs(s.vy)*0.3); s.slamming=false; comboBreak(); Audio.play("ouch"); addShake(12); fx(o.x,o.y,0.8,"#FF6B6B");
       burst(s.x,s.y,10,["#7A4B2A","#fff"],300,600,5); addText(o.x,o.y+60,"Ouch, spikes!","#fff",28); o.used=true; return true;
+    case "fish":
+      s.vy=Math.max(860+bl*45,Math.abs(s.vy)*0.8); s.vx+=120; s.slamming=false; comboUp(); Audio.play("splash"); addShake(6); fx(o.x,o.y,0.8,"#7FD8FF");
+      burst(o.x,o.y,14,["#7FD8FF","#BFF0FF","#FFB13B"],320,700,6); addText(o.x,o.y+60,"Fish flip!","#BFF0FF",28); mission("special",1); o.dead=true; return true;
+    case "duck":
+      s.vy=Math.max(950+bl*50,Math.abs(s.vy)*0.8); s.vx+=100; s.slamming=false; o.sq=1; comboUp(); Audio.play("squeak"); Audio.play("boing",0.7); addShake(7); fx(o.x,o.y+20,0.9,"#FFE066");
+      addText(o.x,o.y+80,"Quack boost!","#FFE066",28); mission("special",1); break;
+    case "awning":
+      s.vy=Math.max(1000+bl*50,Math.abs(s.vy)*0.8); s.vx+=240; s.slamming=false; o.sq=1; comboUp(); Audio.play("boing",0.9); addShake(8); fx(o.x,o.y,1,"#FF7FA8");
+      addText(o.x,o.y+70,"Awning bounce!","#FFB3CB",28); mission("special",1); break;
+    case "mailbox":
+      s.vy=Math.max(660,Math.abs(s.vy)*0.7); s.vx+=90; comboUp(); var mv=Math.round(5*coinValue()*run.mult); run.coins+=mv; Audio.play("gold"); fx(o.x,o.y,0.6,"#7FA8F5");
+      burst(o.x,o.y+20,10,["#fff","#7FA8F5","#FFD447"],300,500,6); addText(o.x,o.y+70,"You've got mail! +"+mv,"#fff",24); mission("special",1); break;
+    case "nest":
+      s.vy=Math.max(920+bl*50,Math.abs(s.vy)*0.8); s.vx+=150; s.slamming=false; comboUp(); var nv=Math.round(3*coinValue()*run.mult); run.coins+=nv; Audio.play("boing",1.1); addShake(6); fx(o.x,o.y,0.9,"#E2C08D");
+      addText(o.x,o.y+60,"Nest bounce! +"+nv,"#FFE7B8",26); mission("special",1); break;
+    case "cloudpad":
+      s.vy=Math.max(1100+bl*50,Math.abs(s.vy)*0.8); s.vx+=180; s.slamming=false; o.sq=1; comboUp(); Audio.play("boing",1.25); addShake(6); fx(o.x,o.y,1,"#FFFFFF");
+      burst(o.x,o.y,14,["#fff","#FFD6E7"],300,200,8); addText(o.x,o.y+70,"Cloud bounce!","#fff",28); mission("special",1); break;
+    case "crater":
+      s.vy=Math.max(1250+bl*50,Math.abs(s.vy)*0.8); s.vx+=200; s.slamming=false; comboUp(); Audio.play("boing",0.6); addShake(9); fx(o.x,10,1.1,"#D3CFEA");
+      burst(o.x,10,16,["#B9B8D6","#fff"],320,300,7); addText(o.x,90,"Moon bounce!","#EDEAFB",30); mission("special",1); break;
+    case "ufo":
+      s.carry=1.6; s.carryType="ufo"; s.vy=0; s.slamming=false; comboUp(); Audio.play("rainbow"); addText(o.x,o.y+60,"Beam me up!","#7BE04B",30); mission("special",1); o.dead=true; break;
+    case "cat":
+      if(tryShield()) break;
+      s.vx*=0.6; s.vy=Math.max(300,Math.abs(s.vy)*0.3); s.slamming=false; comboBreak(); Audio.play("ouch"); addShake(10); fx(o.x,o.y+20,0.8,"#FF6B6B"); addText(o.x,o.y+70,"Hiss!","#fff",28); break;
+    case "owl":
+      if(tryShield()) break;
+      s.vx*=0.6; s.vy=-160; comboBreak(); Audio.play("bad"); addShake(9); fx(o.x,o.y,0.8,"#FF6B6B"); addText(o.x,o.y+50,"Hoo-bonk!","#fff",26); break;
+    case "storm":
+      if(tryShield()) break;
+      s.vx*=0.55; s.vy=-260; comboBreak(); Audio.play("bad"); addShake(14); fx(o.x,o.y,1,"#FFE96B"); G.flash=0.35;
+      burst(s.x,s.y,14,["#FFE96B","#fff"],400,300,6); addText(o.x,o.y+60,"Zap!","#FFE96B",32); break;
     case "shield": snail.shield=true; Audio.play("power"); addText(o.x,o.y+50,"Shell shield","#BFF5FF",24); o.dead=true; break;
     case "magnet": snail.magnet=8; Audio.play("power"); addText(o.x,o.y+50,"Coin magnet","#FFD447",24); o.dead=true; break;
     case "turbo": snail.turbo=2.6; Audio.play("power"); addShake(6); addText(o.x,o.y+50,"Turbo slime!","#7BE04B",28); o.dead=true; break;
@@ -912,6 +1090,7 @@ function hit(o){
 function collect(o){
   var v=Math.max(1,Math.round(o.coin*coinValue()*run.mult));
   run.coins+=v; o.dead=true;
+  if(o.type==="dew") mission("dew",1);
   run.coinChain=(G.t-(run.lastCoinT||-9)<0.6)?(run.coinChain||0)+1:0; run.lastCoinT=G.t;
   Audio.play(o.type==="gold"?"gold":"coin",1+Math.min(12,run.coinChain)*0.06);
   burst(o.x,o.y,o.type==="gold"?14:6,o.type==="gold"?["#FFCE3A","#fff"]:["#7FD8FF","#fff"],200,200,5);
@@ -945,7 +1124,7 @@ function update(dt){
   for(var i=parts.length-1;i>=0;i--){ var p=parts[i]; p.life-=dt; if(p.life<=0){parts.splice(i,1);continue;} p.vy-=(p.g||0)*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; }
   for(var k=texts.length-1;k>=0;k--){ var tx=texts[k]; tx.life-=dt; tx.y+=60*dt; if(tx.life<=0) texts.splice(k,1); }
   shake*=Math.pow(0.02,dt);
-  objs.forEach(function(o){ if(o.sq) o.sq=Math.max(0,o.sq-dt*4); if(o.critter) moveCritter(o,dt); });
+  objs.forEach(function(o){ if(o.sq) o.sq=Math.max(0,o.sq-dt*4); if(o.critter) moveCritter(o,dt); if(o.type==="fish") o.y=o.baseY+Math.abs(Math.sin(G.t*2+o.ph))*90-30; });
   if(G.state==="aim"){
     run.meter+=run.meterDir*dt*(run.newbie?0.8:1.15); if(run.meter>=1){run.meter=1;run.meterDir=-1;} if(run.meter<=0){run.meter=0;run.meterDir=1;}
     zoom=lerp(zoom,1.45,0.08);
@@ -962,7 +1141,7 @@ function update(dt){
   for(var st=0;st<steps;st++){
     var gmul=1-0.035*lv("glide"); if(charId()==="ladybug") gmul-=0.15; if(s.turbo>0) gmul*=0.35;
     if(s.carry>0){
-      s.carry-=h; s.vx=lerp(s.vx,980,0.1); s.vy=(280-s.y)*3; if(s.carry<=0){ s.vy=380; }
+      var ufo=s.carryType==="ufo"; s.carry-=h; s.vx=lerp(s.vx,ufo?1350:980,0.1); s.vy=((ufo?340:280)-s.y)*3; if(s.carry<=0){ s.vy=ufo?520:380; s.carryType=null; }
     } else {
       s.vy-=GRAV*gmul*h;
     }
@@ -978,7 +1157,7 @@ function update(dt){
         if(s.slamming){
           s.slamming=false;
           s.vy=Math.max(Math.abs(s.vy)*0.6, 620+45*lv("bounce")); s.vx=Math.max(s.vx,200);
-          comboUp(); Audio.play("boing",0.8); Audio.play("thump",1); addShake(10); s.squash=1; fx(s.x,8,1,"#FF7FA8");
+          comboUp(); mission("slam",1); Audio.play("boing",0.8); Audio.play("thump",1); addShake(10); s.squash=1; fx(s.x,8,1,"#FF7FA8");
           burst(s.x,4,18,["#8A5A3B","#5DB548","#fff"],380,900,7); addText(s.x,90,"Slam bounce!","#FF7FA8",28);
         } else {
           var nvy=-s.vy*(0.42+0.025*lv("bounce"));
@@ -1026,6 +1205,7 @@ function update(dt){
       if(run.stamps<2 && run.dist>60 && run.stampCd<=0 && (Math.random()<dt*0.07 || (run.stamps===0 && run.dist>250))) startStampede();
     }
     if(run.bannerT>0) run.bannerT-=dt;
+    if(run.zoneB){ run.zoneB.t-=dt; if(run.zoneB.t<=0) run.zoneB=null; }
   }
   if(!s.ground && G.state==="fly"){
     run.gustCd-=dt;
@@ -1044,7 +1224,9 @@ function update(dt){
 
   // distance & goals
   run.dist=Math.max(run.dist, s.x/10);
+  var ZB={200:["The Pond","Bounce off fish and ducks!"],500:["The Town","Awnings and mailboxes. Watch out for cats!"],1000:["The Treetops","Bounce on nests. Dodge the owls!"],2500:["The Clouds","Bouncy clouds! Avoid storm clouds."],5000:["The Moon","Low gravity craters and UFOs!"]};
   GOALS.forEach(function(gl){
+    if(run.dist>=gl.m && !run.reached[gl.m] && ZB[gl.m]){ run.zoneB={t:2.4,a:ZB[gl.m][0],b:ZB[gl.m][1]}; }
     if(run.dist>=gl.m && !run.reached[gl.m]){
       run.reached[gl.m]=true;
       if(!save.goals[gl.m]){
@@ -1092,6 +1274,7 @@ function finishRun(){
   var d=Math.floor(run.dist);
   var distC=Math.floor(d*0.4);
   var total=run.coins+distC+run.goalCoins;
+  mission("dist",d);
   var newBest=d>save.best;
   if(newBest) save.best=d;
   save.coins+=total; save.runs=(save.runs||0)+1;
@@ -1104,7 +1287,7 @@ function finishRun(){
   var rd=$("resDist"); rd.classList.remove("pop"); void rd.offsetWidth; rd.classList.add("pop"); countUp(rd,d,700," m");
   $("dblBtn").classList.toggle("hidden",!adsOn||total<=0); $("dblBtn").disabled=false;
   $("hud").classList.add("hidden");
-  updateBadges();
+  updateBadges(); renderMissions($("resMissions"));
   var tips=["Tip: Slam onto a frog or mouse for a huge bounce.","Tip: Sling Power is the fastest way to fly farther.","Tip: Plow through ant lines to build your combo.","Tip: Grasshoppers give the biggest critter bounce.","Tip: Salt and spikes slow you down. A shield blocks one hit.","Tip: Tap the rainbow snail when it flies by for bonus dewdrops.","Tip: Frogs give you back a slam."];
   var nextG=null; for(var gi=0;gi<GOALS.length;gi++){ if(!save.goals[GOALS[gi].m]){ nextG=GOALS[gi]; break; } }
   $("resTip").textContent=(canBuySomething()?"You can afford an upgrade! Visit the Shop. ":"")+(nextG?"Next goal: "+nextG.name+" at "+fmt(nextG.m)+" m. ":"")+tips[(save.runs||0)%tips.length];
@@ -1265,8 +1448,8 @@ function render(){
     }
     else if(o.ground){ ctx.translate(ox,toSY(0)); ctx.scale(S,S); drawObj(ctx,o.type,G.t,{squash:o.sq,used:o.used}); }
     else {
-      var bob=o.coin?0:Math.sin(G.t*3+(o.ph||0))*6;
-      ctx.translate(ox,toSY(o.y+bob)); ctx.scale(S,S); drawObj(ctx,o.type,G.t+(o.ph||0));
+      var bob=(o.coin||o.type==="fish")?0:Math.sin(G.t*3+(o.ph||0))*6;
+      ctx.translate(ox,toSY(o.y+bob)); ctx.scale(S,S); drawObj(ctx,o.type,G.t+(o.ph||0),{squash:o.sq});
     }
     ctx.restore();
   });
@@ -1295,7 +1478,8 @@ function render(){
     // shadow
     var shY=toSY(0); if(shY<H){ var sd=clamp(1-s.y/600,0.15,1); ell(ctx,toSX(s.x),shY+2,22*S*sd,6*S*sd,"rgba(0,0,0,.18)"); }
     if(s.magnet>0){ circle(ctx,scx,scy,(60+Math.sin(G.t*8)*6)*S,null,"rgba(255,212,71,.6)",3); }
-    if(s.carry>0){ ctx.save(); ctx.translate(scx,scy-46*S); ctx.scale(S,S); drawObj(ctx,"bee",G.t); ctx.restore(); }
+    if(s.carry>0){ if(s.carryType==="ufo"){ ctx.save(); ctx.globalAlpha=0.35; ctx.fillStyle="#B7FF8A"; ctx.beginPath(); ctx.moveTo(scx-14*S,scy-50*S); ctx.lineTo(scx+14*S,scy-50*S); ctx.lineTo(scx+34*S,scy+20*S); ctx.lineTo(scx-34*S,scy+20*S); ctx.closePath(); ctx.fill(); ctx.restore(); }
+      ctx.save(); ctx.translate(scx,scy-(s.carryType==="ufo"?62:46)*S); ctx.scale(S,S); drawObj(ctx,s.carryType==="ufo"?"ufo":"bee",G.t); ctx.restore(); }
     ctx.save(); ctx.translate(scx,scy); ctx.scale(S,S);
     var sq=s.squash; ctx.scale(1+sq*0.25,1-sq*0.25);
     if(G.state!=="aim") ctx.rotate(s.slamming? Math.PI*0.5 : s.rot); else ctx.rotate(-0.35);
@@ -1344,6 +1528,14 @@ function render(){
     ctx.font="900 "+Math.round((inZ?20:15)*Math.max(0.9,S*0.8))+"px "+fontFam; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.lineWidth=5; ctx.strokeStyle=OUT;
     if(run.newbie) drawHand(mx+mw+34,my-mh*0.35,Math.max(0.9,S*0.8));
     ctx.strokeText(inZ?"Perfect!":"Perfect",mx+mw/2,my-mh-16); ctx.fillStyle=inZ?"#FFD447":"#fff"; ctx.fillText(inZ?"Perfect!":"Perfect",mx+mw/2,my-mh-16);
+  }
+  if(run && run.zoneB && run.bannerT<=0){
+    var zb=run.zoneB, za=Math.min(1,zb.t/0.4, (2.4-zb.t)/0.25), zs=Math.min(W*0.1,52);
+    ctx.save(); ctx.globalAlpha=Math.max(0,za); ctx.translate(W/2,H*0.32); ctx.scale(0.8+0.2*Math.min(1,(2.4-zb.t)/0.25),0.8+0.2*Math.min(1,(2.4-zb.t)/0.25));
+    ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.font="700 "+Math.round(zs)+"px "+fontFam; ctx.lineJoin="round";
+    ctx.lineWidth=9; ctx.strokeStyle=OUT; ctx.strokeText(zb.a,0,0); ctx.fillStyle="#fff"; ctx.fillText(zb.a,0,0);
+    ctx.font="700 "+Math.round(zs*0.38)+"px "+fontFam; ctx.lineWidth=5; ctx.strokeText(zb.b,0,zs*0.85); ctx.fillStyle="#FFD447"; ctx.fillText(zb.b,0,zs*0.85);
+    ctx.restore();
   }
   if(run && run.stampT>0 && run.bannerT<=0){
     ctx.save(); ctx.font="900 "+Math.round(Math.min(W*0.06,28))+"px "+fontFam; ctx.textAlign="center"; ctx.textBaseline="middle";
@@ -1464,6 +1656,7 @@ function toMenu(){
   G.state="menu"; snail={x:0,y:58,vx:0,vy:0,rot:0,squash:0}; run=null; objs=[]; camX=120; zoom=1;
   $("hud").classList.add("hidden");
   $("menuCoins").textContent=fmt(save.coins); $("menuBest").textContent=fmt(save.best); updateBadges();
+  renderMissions($("menuMissions")); $("legendBox").classList.toggle("hidden",(save.runs||0)>=5);
   var locked=CHARS.filter(function(c){ return c.cost>0 && !save.owned[c.id]; });
   $("trialBtn").classList.toggle("hidden", !(adsOn && locked.length && save.trialDay!==today()));
   showOnly("menu"); gpStop(); Audio.setIntense(false);
@@ -1658,7 +1851,7 @@ async function boot(){
   resize();
   await initSDK();
   try{ if(SDK && sdkOn) SDK.game.loadingStart(); }catch(e){}
-  loadSave();
+  loadSave(); ensureMissions();
   Audio.setSound(save.snd); Audio.setMusic(save.mus);
   dewURL=iconURL("dew");
   buildLegend(); injectDewIcons(); refreshToggles();
@@ -1667,7 +1860,7 @@ async function boot(){
   toMenu();
   requestAnimationFrame(frame);
 }
-if(/[?&]debug=1/.test(location.search)) window.__ss={stamp:function(){startStampede();},objs:function(){return objs;},setUp:function(n){ UPGRADES.forEach(function(u){save.up[u.id]=n;}); },G:G,run:function(){return run;},snail:function(){return snail;},save:function(){return save;}};
+if(/[?&]debug=1/.test(location.search)) window.__ss={jump:function(m){ snail.x=m*10; camX=snail.x; run.dist=m; nextSpawn=snail.x+250; objs=[]; ensureSpawn(); snail.y=300; snail.vx=900; snail.vy=200; },stamp:function(){startStampede();},objs:function(){return objs;},setUp:function(n){ UPGRADES.forEach(function(u){save.up[u.id]=n;}); },G:G,run:function(){return run;},snail:function(){return snail;},save:function(){return save;}};
 boot();
 })();
 </script>
